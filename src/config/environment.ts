@@ -77,6 +77,7 @@ export function validateEnvironment(input: EnvironmentInput): AppConfiguration {
 
   for (const [name, rawValue] of Object.entries(input)) {
     if (!name.startsWith("NEXT_PUBLIC_") || !rawValue) continue;
+    if (name.startsWith("NEXT_PUBLIC_VERCEL_")) continue;
     if (/(?:SECRET|SERVICE_ROLE|PASSWORD|PRIVATE_KEY|DATABASE_URL)/i.test(name) || isPrivilegedToken(rawValue)) {
       fail(`${name} contains or names a privileged credential and must not be public.`);
     }

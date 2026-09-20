@@ -126,3 +126,13 @@ test("Supabase public configuration fails closed for missing, conflicting or pri
     assert.throws(() => validateSupabasePublicConfiguration(input), EnvironmentConfigurationError);
   }
 });
+
+test("Vercel platform-injected system variables are ignored by URL validation", () => {
+  const configuration = validateEnvironment({
+    ...hosted,
+    NEXT_PUBLIC_VERCEL_URL: "bakers-art-admin.vercel.app",
+    NEXT_PUBLIC_VERCEL_BRANCH_URL: "bakers-art-admin-git-main-xxx.vercel.app",
+  });
+  assert.equal(configuration.environment, "production");
+});
+
