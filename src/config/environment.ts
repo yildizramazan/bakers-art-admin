@@ -67,10 +67,10 @@ function isPrivilegedToken(value: string): boolean {
 
 export function validateEnvironment(input: EnvironmentInput): AppConfiguration {
   const environmentValue = input["APP_ENV"]?.trim();
-  if (!environmentValue && input["NODE_ENV"] === "production") {
+  if (!environmentValue && input["NODE_ENV"] === "production" && !input["VERCEL_ENV"]) {
     fail("APP_ENV must be explicitly set for a production-optimized build or server.");
   }
-  const environment = environmentValue || "development";
+  const environment = environmentValue || (input["VERCEL_ENV"] ? "production" : "development");
   if (environment !== "development" && environment !== "staging" && environment !== "production") {
     fail("APP_ENV must be development, staging, or production.");
   }
@@ -84,16 +84,19 @@ export function validateEnvironment(input: EnvironmentInput): AppConfiguration {
     if (/(?:_URL|_ORIGIN)$/.test(name)) validatedURL(name, rawValue, environment);
   }
 
-  const originValue = input["APP_ORIGIN"]?.trim() || (environment === "development" ? "http://localhost:3000" : "");
+  const vercelHost = input["VERCEL_PROJECT_PRODUCTION_URL"] || input["NEXT_PUBLIC_VERCEL_URL"] || input["VERCEL_URL"];
+  const vercelOrigin = vercelHost ? `https://${vercelHost.replace(/^https?:\/\//, "")}` : "";
+
+  const originValue = input["APP_ORIGIN"]?.trim() || vercelOrigin || (environment === "development" ? "http://localhost:3000" : "");
   if (!originValue) fail("APP_ORIGIN must be configured for staging and production.");
   const origin = validatedURL("APP_ORIGIN", originValue, environment);
   if (origin.pathname !== "/" || origin.search || origin.hash) fail("APP_ORIGIN must contain only the scheme, host and optional port.");
 
-  const publicEnvironment = input["NEXT_PUBLIC_APP_ENV"]?.trim();
+  const publicEnvironment = input["NEXT_PUBLIC_APP_ENV"]?.trim() || (input["VERCEL_ENV"] ? environment : "");
   if (publicEnvironment && publicEnvironment !== environment) {
     fail("NEXT_PUBLIC_APP_ENV must match APP_ENV.");
   }
-  const publicOriginValue = input["NEXT_PUBLIC_APP_ORIGIN"]?.trim();
+  const publicOriginValue = input["NEXT_PUBLIC_APP_ORIGIN"]?.trim() || (vercelOrigin ? origin.origin : "");
   if (publicOriginValue) {
     const publicOrigin = validatedURL("NEXT_PUBLIC_APP_ORIGIN", publicOriginValue, environment);
     if (publicOrigin.pathname !== "/" || publicOrigin.search || publicOrigin.hash || publicOrigin.origin !== origin.origin) {
