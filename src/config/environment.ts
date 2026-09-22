@@ -78,6 +78,7 @@ export function validateEnvironment(input: EnvironmentInput): AppConfiguration {
   for (const [name, rawValue] of Object.entries(input)) {
     if (!name.startsWith("NEXT_PUBLIC_") || !rawValue) continue;
     if (name.startsWith("NEXT_PUBLIC_VERCEL_")) continue;
+    if (input["VERCEL_ENV"] && name === "NEXT_PUBLIC_APP_ORIGIN" && (rawValue.includes("localhost") || rawValue.includes("127.0.0.1"))) continue;
     if (/(?:SECRET|SERVICE_ROLE|PASSWORD|PRIVATE_KEY|DATABASE_URL)/i.test(name) || isPrivilegedToken(rawValue)) {
       fail(`${name} contains or names a privileged credential and must not be public.`);
     }
@@ -87,7 +88,11 @@ export function validateEnvironment(input: EnvironmentInput): AppConfiguration {
   const vercelHost = input["VERCEL_PROJECT_PRODUCTION_URL"] || input["NEXT_PUBLIC_VERCEL_URL"] || input["VERCEL_URL"];
   const vercelOrigin = vercelHost ? `https://${vercelHost.replace(/^https?:\/\//, "")}` : "";
 
-  const originValue = input["APP_ORIGIN"]?.trim() || vercelOrigin || (environment === "development" ? "http://localhost:3000" : "");
+  let rawOrigin = input["APP_ORIGIN"]?.trim();
+  if (input["VERCEL_ENV"] && rawOrigin && (rawOrigin.includes("localhost") || rawOrigin.includes("127.0.0.1"))) {
+    rawOrigin = vercelOrigin;
+  }
+  const originValue = rawOrigin || vercelOrigin || (environment === "development" ? "http://localhost:3000" : "");
   if (!originValue) fail("APP_ORIGIN must be configured for staging and production.");
   const origin = validatedURL("APP_ORIGIN", originValue, environment);
   if (origin.pathname !== "/" || origin.search || origin.hash) fail("APP_ORIGIN must contain only the scheme, host and optional port.");
@@ -96,7 +101,11 @@ export function validateEnvironment(input: EnvironmentInput): AppConfiguration {
   if (publicEnvironment && publicEnvironment !== environment) {
     fail("NEXT_PUBLIC_APP_ENV must match APP_ENV.");
   }
-  const publicOriginValue = input["NEXT_PUBLIC_APP_ORIGIN"]?.trim() || (vercelOrigin ? origin.origin : "");
+  let publicOriginValue = input["NEXT_PUBLIC_APP_ORIGIN"]?.trim();
+  if (input["VERCEL_ENV"] && publicOriginValue && (publicOriginValue.includes("localhost") || publicOriginValue.includes("127.0.0.1"))) {
+    publicOriginValue = vercelOrigin;
+  }
+  publicOriginValue = publicOriginValue || (vercelOrigin ? origin.origin : "");
   if (publicOriginValue) {
     const publicOrigin = validatedURL("NEXT_PUBLIC_APP_ORIGIN", publicOriginValue, environment);
     if (publicOrigin.pathname !== "/" || publicOrigin.search || publicOrigin.hash || publicOrigin.origin !== origin.origin) {
@@ -116,9 +125,9 @@ export function validateSupabasePublicConfiguration(
   input: EnvironmentInput,
 ): SupabasePublicConfiguration {
   const app = validateEnvironment(input);
-  const rawURL = input["NEXT_PUBLIC_SUPABASE_URL"]?.trim();
-  const publishable = input["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"]?.trim();
-  const legacyAnonymous = input["NEXT_PUBLIC_SUPABASE_ANON_KEY"]?.trim();
+  const rawURL = input["NEXT_PUBLIC_SUPABASE_URL"]?.trim() || input["SUPABASE_URL"]?.trim();
+  const publishable = input["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"]?.trim() || input["SUPABASE_PUBLISHABLE_KEY"]?.trim();
+  const legacyAnonymous = input["NEXT_PUBLIC_SUPABASE_ANON_KEY"]?.trim() || input["SUPABASE_ANON_KEY"]?.trim();
 
   if (!rawURL) fail("NEXT_PUBLIC_SUPABASE_URL must be configured.");
   if (publishable && legacyAnonymous && publishable !== legacyAnonymous) {

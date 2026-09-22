@@ -4,7 +4,12 @@ import { validateSupabasePublicConfiguration } from "@/config/environment";
 
 export async function refreshSupabaseSession(request: NextRequest) {
   let response = NextResponse.next({ request });
-  const configuration = validateSupabasePublicConfiguration(process.env);
+  let configuration;
+  try {
+    configuration = validateSupabasePublicConfiguration(process.env);
+  } catch {
+    return response;
+  }
   const supabase = createServerClient(configuration.url, configuration.publishableKey, {
     cookies: {
       getAll: () => request.cookies.getAll(),
